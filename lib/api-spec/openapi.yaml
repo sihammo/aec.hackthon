@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: GAM Seismic Risk Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: portfolio
+    description: Portfolio analysis endpoints
+  - name: risk
+    description: Risk analysis endpoints
+  - name: simulation
+    description: Earthquake simulation endpoints
+  - name: recommendations
+    description: Strategic recommendations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,144 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /portfolio/summary:
+    get:
+      operationId: getPortfolioSummary
+      tags: [portfolio]
+      summary: Get overall portfolio summary KPIs
+      responses:
+        "200":
+          description: Portfolio summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioSummary"
+
+  /portfolio/by-wilaya:
+    get:
+      operationId: getPortfolioByWilaya
+      tags: [portfolio]
+      summary: Get portfolio breakdown by wilaya
+      responses:
+        "200":
+          description: List of wilaya portfolio data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WilayaPortfolio"
+
+  /portfolio/by-category:
+    get:
+      operationId: getPortfolioByCategory
+      tags: [portfolio]
+      summary: Get portfolio breakdown by risk category
+      responses:
+        "200":
+          description: Category breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryPortfolio"
+
+  /portfolio/by-zone:
+    get:
+      operationId: getPortfolioByZone
+      tags: [portfolio]
+      summary: Get portfolio by seismic zone (RPA99)
+      responses:
+        "200":
+          description: Zone breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZonePortfolio"
+
+  /risk/scores:
+    get:
+      operationId: getRiskScores
+      tags: [risk]
+      summary: Get risk scores per wilaya
+      responses:
+        "200":
+          description: Risk scores list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WilayaRiskScore"
+
+  /risk/hotspots:
+    get:
+      operationId: getRiskHotspots
+      tags: [risk]
+      summary: Get top risk hotspots (high concentration zones)
+      responses:
+        "200":
+          description: Hotspot list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskHotspot"
+
+  /risk/map-data:
+    get:
+      operationId: getRiskMapData
+      tags: [risk]
+      summary: Get map visualization data for all wilayas
+      responses:
+        "200":
+          description: Map data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MapDataPoint"
+
+  /simulation/run:
+    post:
+      operationId: runSimulation
+      tags: [simulation]
+      summary: Run earthquake scenario simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationRequest"
+      responses:
+        "200":
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationResult"
+
+  /recommendations:
+    get:
+      operationId: getRecommendations
+      tags: [recommendations]
+      summary: Get strategic recommendations
+      responses:
+        "200":
+          description: Recommendations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recommendation"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +178,295 @@ components:
       required:
         - status
 
+    PortfolioSummary:
+      type: object
+      properties:
+        totalContracts:
+          type: integer
+        totalCapitalAssure:
+          type: number
+        totalPrimesCollectees:
+          type: number
+        avgCapitalPerContract:
+          type: number
+        contractsHighRisk:
+          type: integer
+        contractsMediumRisk:
+          type: integer
+        contractsLowRisk:
+          type: integer
+        exposureHighRisk:
+          type: number
+        pctHighRisk:
+          type: number
+        gamRetentionShare:
+          type: number
+      required:
+        - totalContracts
+        - totalCapitalAssure
+        - totalPrimesCollectees
+        - avgCapitalPerContract
+        - contractsHighRisk
+        - contractsMediumRisk
+        - contractsLowRisk
+        - exposureHighRisk
+        - pctHighRisk
+        - gamRetentionShare
+
+    WilayaPortfolio:
+      type: object
+      properties:
+        wilayaCode:
+          type: integer
+        wilayaName:
+          type: string
+        seismicZone:
+          type: string
+        totalContracts:
+          type: integer
+        capitalAssure:
+          type: number
+        primesCollectees:
+          type: number
+        riskScore:
+          type: number
+        riskLevel:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+      required:
+        - wilayaCode
+        - wilayaName
+        - seismicZone
+        - totalContracts
+        - capitalAssure
+        - primesCollectees
+        - riskScore
+        - riskLevel
+        - lat
+        - lng
+
+    CategoryPortfolio:
+      type: object
+      properties:
+        category:
+          type: string
+        totalContracts:
+          type: integer
+        capitalAssure:
+          type: number
+        pct:
+          type: number
+      required:
+        - category
+        - totalContracts
+        - capitalAssure
+        - pct
+
+    ZonePortfolio:
+      type: object
+      properties:
+        zone:
+          type: string
+        zoneName:
+          type: string
+        totalContracts:
+          type: integer
+        capitalAssure:
+          type: number
+        pct:
+          type: number
+        riskMultiplier:
+          type: number
+      required:
+        - zone
+        - zoneName
+        - totalContracts
+        - capitalAssure
+        - pct
+        - riskMultiplier
+
+    WilayaRiskScore:
+      type: object
+      properties:
+        wilayaCode:
+          type: integer
+        wilayaName:
+          type: string
+        seismicZone:
+          type: string
+        riskScore:
+          type: number
+        riskLevel:
+          type: string
+        capitalAssure:
+          type: number
+        concentrationRisk:
+          type: number
+        vulnerabilityIndex:
+          type: number
+      required:
+        - wilayaCode
+        - wilayaName
+        - seismicZone
+        - riskScore
+        - riskLevel
+        - capitalAssure
+        - concentrationRisk
+        - vulnerabilityIndex
+
+    RiskHotspot:
+      type: object
+      properties:
+        wilayaName:
+          type: string
+        seismicZone:
+          type: string
+        capitalAssure:
+          type: number
+        riskScore:
+          type: number
+        reason:
+          type: string
+      required:
+        - wilayaName
+        - seismicZone
+        - capitalAssure
+        - riskScore
+        - reason
+
+    MapDataPoint:
+      type: object
+      properties:
+        wilayaCode:
+          type: integer
+        wilayaName:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        seismicZone:
+          type: string
+        riskLevel:
+          type: string
+        riskScore:
+          type: number
+        capitalAssure:
+          type: number
+        totalContracts:
+          type: integer
+      required:
+        - wilayaCode
+        - wilayaName
+        - lat
+        - lng
+        - seismicZone
+        - riskLevel
+        - riskScore
+        - capitalAssure
+        - totalContracts
+
+    SimulationRequest:
+      type: object
+      properties:
+        wilayaCode:
+          type: integer
+        magnitude:
+          type: number
+        scenario:
+          type: string
+      required:
+        - wilayaCode
+        - magnitude
+        - scenario
+
+    SimulationResult:
+      type: object
+      properties:
+        wilayaName:
+          type: string
+        seismicZone:
+          type: string
+        magnitude:
+          type: number
+        scenario:
+          type: string
+        totalExposure:
+          type: number
+        estimatedLoss:
+          type: number
+        gamShare:
+          type: number
+        gamLoss:
+          type: number
+        affectedContracts:
+          type: integer
+        lossRatio:
+          type: number
+        severity:
+          type: string
+        breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulationBreakdown"
+      required:
+        - wilayaName
+        - seismicZone
+        - magnitude
+        - scenario
+        - totalExposure
+        - estimatedLoss
+        - gamShare
+        - gamLoss
+        - affectedContracts
+        - lossRatio
+        - severity
+        - breakdown
+
+    SimulationBreakdown:
+      type: object
+      properties:
+        category:
+          type: string
+        contracts:
+          type: integer
+        exposure:
+          type: number
+        loss:
+          type: number
+      required:
+        - category
+        - contracts
+        - exposure
+        - loss
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        priority:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        impact:
+          type: string
+        affectedWilayas:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - type
+        - priority
+        - title
+        - description
+        - impact
+        - affectedWilayas

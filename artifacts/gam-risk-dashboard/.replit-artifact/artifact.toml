@@ -1,0 +1,31 @@
+kind = "data-app"
+previewPath = "/"
+title = "GAM Seismic Risk Dashboard"
+version = "1.0.0"
+id = "artifacts/gam-risk-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "data-visualization"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24181
+
+[services.development]
+run = "pnpm --filter @workspace/gam-risk-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gam-risk-dashboard", "run", "build" ]
+publicDir = "artifacts/gam-risk-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24181"
+BASE_PATH = "/"
