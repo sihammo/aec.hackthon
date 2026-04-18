@@ -1,6 +1,11 @@
 import { WILAYA_DATA, type WilayaData } from "./gamData";
 
-let currentData: WilayaData[] = [...WILAYA_DATA];
+let currentData: WilayaData[] = WILAYA_DATA.map(w => ({
+  ...w,
+  contracts: 0,
+  capitalAssure: 0,
+  primesCollectees: 0
+}));
 let isCustomData = false;
 let importedAt: string | null = null;
 
@@ -15,7 +20,12 @@ export function setData(data: WilayaData[]): void {
 }
 
 export function resetData(): void {
-  currentData = [...WILAYA_DATA];
+  currentData = WILAYA_DATA.map(w => ({
+    ...w,
+    contracts: 0,
+    capitalAssure: 0,
+    primesCollectees: 0
+  }));
   isCustomData = false;
   importedAt = null;
 }

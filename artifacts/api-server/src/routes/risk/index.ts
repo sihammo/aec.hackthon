@@ -12,10 +12,18 @@ router.get("/portfolio/summary", async (_req, res): Promise<void> => {
   const totalCapitalAssure = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
   const totalPrimesCollectees = wilayas.reduce((s, w) => s + w.primesCollectees, 0);
 
+  // Profit/Loss logic from user's python
+  let totalProfits = 0;
+  let totalLosses = 0;
   let contractsHighRisk = 0, contractsMediumRisk = 0, contractsLowRisk = 0;
   let exposureHighRisk = 0;
 
   wilayas.forEach(w => {
+    // In our simplified store, primesCollectees is the sum. 
+    // If > 0, it contributes to profits. If < 0, to losses.
+    if (w.primesCollectees > 0) totalProfits += w.primesCollectees;
+    else totalLosses += Math.abs(w.primesCollectees);
+
     const score = computeRiskScore(w, wilayas);
     const level = getRiskLevel(score);
     if (level === "High") {
@@ -32,6 +40,8 @@ router.get("/portfolio/summary", async (_req, res): Promise<void> => {
     totalContracts,
     totalCapitalAssure,
     totalPrimesCollectees,
+    totalProfits,
+    totalLosses,
     avgCapitalPerContract: totalContracts > 0 ? Math.round(totalCapitalAssure / totalContracts) : 0,
     contractsHighRisk,
     contractsMediumRisk,
@@ -183,55 +193,85 @@ router.get("/risk/map-data", async (_req, res): Promise<void> => {
 
 router.post("/simulation/run", async (req, res): Promise<void> => {
   const { wilayaCode, magnitude, scenario } = req.body;
+  const wilayas = getData();
+  const epicenter = wilayas.find(w => w.code === wilayaCode);
 
-  const wilaya = getData().find(w => w.code === wilayaCode);
-  if (!wilaya) {
-    res.status(404).json({ error: "Wilaya not found" });
+  if (!epicenter) {
+    res.status(404).json({ error: "Wilaya centre non trouvée" });
     return;
   }
 
-  const zone = SEISMIC_ZONES[wilaya.seismicZone];
-  const baseLossRate = zone?.multiplier ?? 0;
+  // Methodology: L = E * H * V
+  // 1. Calculate Hazard (H) and Losses for ALL wilayas
+  const results = wilayas.map(w => {
+    // Distance in KM
+    const R = Math.sqrt(
+      Math.pow((w.lat - epicenter.lat) * 111, 2) +
+      Math.pow((w.lng - epicenter.lng) * 111, 2)
+    ) + 1;
 
-  const magnitudeMultiplier = Math.pow(10, (magnitude - 5) * 0.3);
-  const scenarioMultipliers: Record<string, number> = {
-    "optimistic": 0.5,
-    "moderate": 1.0,
-    "pessimistic": 1.8,
-    "catastrophic": 3.0,
-  };
+    // Hazard Intensity (H) - Magnitude and distance attenuation
+    let hazardIntensity = Math.pow(10, magnitude - 6.0) / Math.pow(R / 20, 1.8);
+    hazardIntensity = Math.min(1.0, hazardIntensity);
+    
+    // 2. Vulnerability (V) 
+    // Simplified breakdown: 60% Real Estate, 25% Commercial, 15% Industrial
+    const expRE = w.capitalAssure * 0.60;
+    const expCO = w.capitalAssure * 0.25;
+    const expIN = w.capitalAssure * 0.15;
 
-  const scenarioMult = scenarioMultipliers[scenario] ?? 1.0;
-  const lossRate = Math.min(0.95, baseLossRate * magnitudeMultiplier * scenarioMult);
-  const estimatedLoss = wilaya.capitalAssure * lossRate;
-  const gamLoss = estimatedLoss * GAM_RETENTION;
-  const affectedContracts = Math.round(wilaya.contracts * lossRate * 0.8);
+    let vRE = 0.05, vCO = 0.03, vIN = 0.02;
 
-  const categoryBreakdown = [
-    { category: "Bien Immobilier", contracts: Math.round(affectedContracts * 0.55), exposure: wilaya.capitalAssure * 0.55, loss: estimatedLoss * 0.55 },
-    { category: "Installation Commerciale", contracts: Math.round(affectedContracts * 0.28), exposure: wilaya.capitalAssure * 0.28, loss: estimatedLoss * 0.28 },
-    { category: "Installation Industrielle", contracts: Math.round(affectedContracts * 0.17), exposure: wilaya.capitalAssure * 0.17, loss: estimatedLoss * 0.17 },
-  ];
+    if (scenario === "Moderate") {
+      vRE = 0.20; vCO = 0.12; vIN = 0.08;
+    } else if (scenario === "Catastrophic" || scenario === "Pessimistic") {
+      vRE = 0.67; vCO = 0.45; vIN = 0.21;
+    }
 
-  let severity: string;
-  if (lossRate >= 0.4) severity = "Catastrophique";
-  else if (lossRate >= 0.2) severity = "Majeur";
-  else if (lossRate >= 0.1) severity = "Modéré";
-  else severity = "Mineur";
+    const lossRE = expRE * hazardIntensity * vRE;
+    const lossCO = expCO * hazardIntensity * vCO;
+    const lossIN = expIN * hazardIntensity * vIN;
+    
+    const directLoss = lossRE + lossCO + lossIN;
+    // 3. Cascading Failures (BI + Demand Surge ~ 15% for moderate, 25% for catastrophic)
+    const cascadingMultiplier = (scenario === "Catastrophic") ? 0.25 : 0.15;
+    const cascadingLoss = directLoss * cascadingMultiplier;
+    const totalLoss = directLoss + cascadingLoss;
+
+    return {
+      wilayaCode: w.code,
+      wilayaName: w.name,
+      distance: Math.round(R),
+      hazardIntensity: Math.round(hazardIntensity * 100),
+      lossRealEstate: Math.round(lossRE),
+      lossCommercial: Math.round(lossCO),
+      lossIndustrial: Math.round(lossIN),
+      cascadingLoss: Math.round(cascadingLoss),
+      totalLoss: Math.round(totalLoss),
+      directLoss: Math.round(directLoss)
+    };
+  }).filter(r => r.totalLoss > 1000000) // Only report meaningful losses (> 1M DZD)
+    .sort((a, b) => b.totalLoss - a.totalLoss);
+
+  const totalEstimatedLoss = results.reduce((s, r) => s + r.totalLoss, 0);
+  const totalDirectLoss = results.reduce((s, r) => s + r.directLoss, 0);
+  const totalCascadingLoss = results.reduce((s, r) => s + r.cascadingLoss, 0);
 
   res.json({
-    wilayaName: wilaya.name,
-    seismicZone: wilaya.seismicZone,
+    epicenterName: epicenter.name,
     magnitude,
     scenario,
-    totalExposure: wilaya.capitalAssure,
-    estimatedLoss,
-    gamShare: GAM_RETENTION,
-    gamLoss,
-    affectedContracts,
-    lossRatio: Math.round(lossRate * 100),
-    severity,
-    breakdown: categoryBreakdown,
+    totalEstimatedLoss,
+    totalDirectLoss,
+    totalCascadingLoss,
+    gamShare: totalEstimatedLoss * GAM_RETENTION,
+    affectedWilayas: results.length,
+    results: results.slice(0, 15), // List top affected provinces
+    breakdown: [
+      { category: "Bien Immobilier", loss: results.reduce((s, r) => s + r.lossRealEstate, 0) },
+      { category: "Installation Commerciale", loss: results.reduce((s, r) => s + r.lossCommercial, 0) },
+      { category: "Installation Industrielle", loss: results.reduce((s, r) => s + r.lossIndustrial, 0) },
+    ]
   });
 });
 
@@ -347,23 +387,20 @@ router.post("/portfolio/import", async (req, res): Promise<void> => {
 
   const errors: string[] = [];
   const merged = WILAYA_DATA.map(w => {
-    const row = rows.find(r => r.wilaya.trim().toLowerCase() === w.name.toLowerCase());
+    const row = rows.find(r => {
+      const rowName = r.wilaya?.toString().trim().toLowerCase() || "";
+      const masterName = w.name.toLowerCase();
+      // Match if raw name matches OR if master name is contained in row name (to handle "16 - Algiers")
+      return rowName === masterName || rowName.includes(masterName) || masterName.includes(rowName);
+    });
+    
     if (!row) return w;
-    if (typeof row.contracts !== "number" || row.contracts < 0) {
-      errors.push(`${w.name}: contracts invalide`);
-      return w;
-    }
-    if (typeof row.capitalAssure !== "number" || row.capitalAssure < 0) {
-      errors.push(`${w.name}: capitalAssure invalide`);
-      return w;
-    }
+
     return {
       ...w,
-      contracts: Math.round(row.contracts),
-      capitalAssure: row.capitalAssure,
-      primesCollectees: typeof row.primesCollectees === "number" && row.primesCollectees >= 0
-        ? row.primesCollectees
-        : row.capitalAssure * 0.003,
+      contracts: Number(row.contracts) || 0,
+      capitalAssure: Number(row.capitalAssure) || 0,
+      primesCollectees: Number(row.primesCollectees) || 0
     };
   });
 

@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCapital, formatPercent, CHART_COLORS, CHART_COLOR_LIST } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { CSVLink } from "react-csv";
-import { Download, ArrowUpIcon, ArrowDownIcon } from "lucide-react";
+import { Download, ArrowUpIcon, ArrowDownIcon, Upload } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -139,187 +139,162 @@ export default function Dashboard() {
         <DashboardControls loading={loading} onRefresh={handleRefresh} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <Card>
-          <CardContent className="p-6">
-            {loading ? (
-              <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
-            ) : summary ? (
-              <>
-                <p className="text-sm text-muted-foreground">Total Exposure</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.blue }}>{formatCapital(summary.totalCapitalAssure)}</p>
-                <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
-                  <ArrowUpIcon className="w-3 h-3 text-green-600" />
-                  <span className="text-green-600">1.2%</span> vs last month
-                </div>
-              </>
-            ) : <p className="text-2xl font-bold mt-1">--</p>}
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            {loading ? (
-              <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
-            ) : summary ? (
-              <>
-                <p className="text-sm text-muted-foreground">High Risk Exposure</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.red }}>{formatCapital(summary.exposureHighRisk)}</p>
-                <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
-                  <span className="font-semibold">{formatPercent(summary.pctHighRisk)}</span> of portfolio
-                </div>
-              </>
-            ) : <p className="text-2xl font-bold mt-1">--</p>}
-          </CardContent>
-        </Card>
+      {!loading && (!summary || summary.totalCapitalAssure === 0) ? (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+          <div className="w-24 h-24 mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <Upload className="w-12 h-12 text-primary animate-pulse" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4">Awaiting Risk Portfolio Data</h2>
+          <p className="text-muted-foreground max-w-md mb-8">
+            The Risk Insight Engine is currently in its standby state. Please upload your Excel or CSV portfolio to trigger the deep-risk analysis and generate reports.
+          </p>
+          <button 
+            onClick={() => window.location.href = "/import"}
+            className="px-10 py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:scale-105 transition-all shadow-lg shadow-primary/20"
+          >
+            Go to Import Page
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <Card>
+              <CardContent className="p-6">
+                {loading ? (
+                  <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
+                ) : summary ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">Total Portfolio Exposure</p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.blue }}>{formatCapital(summary.totalCapitalAssure)}</p>
+                    <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
+                      <span className="text-muted-foreground">Insured Capital</span>
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6 border-l-4 border-emerald-500">
+                {loading ? (
+                  <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
+                ) : summary ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">Total Profits (Premiums)</p>
+                    <p className="text-2xl font-bold mt-1 text-emerald-500">{formatCapital(summary.totalProfits || 0)}</p>
+                    <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
+                      <ArrowUpIcon className="w-3 h-3 text-emerald-500" /> Positive inflow
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            {loading ? (
-              <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
-            ) : summary ? (
-              <>
-                <p className="text-sm text-muted-foreground">Total Contracts</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.blue }}>{new Intl.NumberFormat().format(summary.totalContracts)}</p>
-                <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
-                  <ArrowUpIcon className="w-3 h-3 text-green-600" />
-                  <span className="text-green-600">3.4%</span> vs last month
-                </div>
-              </>
-            ) : <p className="text-2xl font-bold mt-1">--</p>}
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="p-6 border-l-4 border-red-500">
+                {loading ? (
+                  <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
+                ) : summary ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">Total Technical Losses</p>
+                    <p className="text-2xl font-bold mt-1 text-red-500">{formatCapital(summary.totalLosses || 0)}</p>
+                    <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
+                      <ArrowDownIcon className="w-3 h-3 text-red-500" /> Claims & negative balance
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            {loading ? (
-              <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
-            ) : summary ? (
-              <>
-                <p className="text-sm text-muted-foreground">GAM Retention Share</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.amber }}>{formatCapital(summary.gamRetentionShare)}</p>
-                <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
-                  Target: 30%
-                </div>
-              </>
-            ) : <p className="text-2xl font-bold mt-1">--</p>}
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardContent className="p-6">
+                {loading ? (
+                  <><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-32" /></>
+                ) : summary ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">Risk Concentration</p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: CHART_COLORS.amber }}>{formatPercent(summary.pctHighRisk)}</p>
+                    <div className="flex items-center gap-1 mt-1 text-[12px] text-muted-foreground">
+                      In High Risk Zones (III)
+                    </div>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <Card>
-          <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Exposure Growth (YTD)</CardTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <Card>
+              <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-base">Exposure Distribution (by Category)</CardTitle>
+                {!loading && categories.length > 0 && (
+                  <button 
+                    onClick={() => exportToExcel(categories, "exposure-category", "Categories")}
+                    className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" 
+                    style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </CardHeader>
+              <CardContent>
+                {loading ? <Skeleton className="w-full h-[300px]" /> : (
+                  <ResponsiveContainer width="100%" height={300} debounce={0}>
+                    <PieChart>
+                      <Pie data={categories} dataKey="capitalAssure" nameKey="category" cx="50%" cy="45%" outerRadius={100} innerRadius={60} cornerRadius={4} paddingAngle={2} isAnimationActive={false} stroke="none">
+                        {categories.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLOR_LIST[index % CHART_COLOR_LIST.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
+                      <Legend content={<CustomLegend />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
 
-            {!loading && historicExposure.length > 0 && (
-              <button 
-                onClick={() => exportToExcel(historicExposure, "exposure-growth", "Exposure Growth")}
-                className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" 
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="w-full h-[300px]" /> : (
-              <ResponsiveContainer width="100%" height={300} debounce={0}>
-                <AreaChart data={historicExposure}>
-                  <defs>
-                    <linearGradient id="gradientExposure" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.blue} stopOpacity={0.5} />
-                      <stop offset="100%" stopColor={CHART_COLORS.blue} stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: tickColor }} stroke={tickColor} />
-                  <YAxis tickFormatter={(val) => `${(val / 1000000000).toFixed(0)}`} tick={{ fontSize: 12, fill: tickColor }} stroke={tickColor} />
-                  <Tooltip content={<CustomTooltip />} isAnimationActive={false} cursor={{ fill: 'rgba(0,0,0,0.05)', stroke: 'none' }} />
-                  <Area type="linear" dataKey="exposure" name="Exposure (Mrds DZD)" fill="url(#gradientExposure)" stroke={CHART_COLORS.blue} fillOpacity={1} strokeWidth={2} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Exposure by Category</CardTitle>
-            {!loading && categories.length > 0 && (
-              <button 
-                onClick={() => exportToExcel(categories, "exposure-category", "Exposure by Category")}
-                className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" 
-                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="w-full h-[300px]" /> : (
-              <ResponsiveContainer width="100%" height={300} debounce={0}>
-                <PieChart>
-                  <Pie data={categories} dataKey="capitalAssure" nameKey="category" cx="50%" cy="45%" outerRadius={100} innerRadius={60} cornerRadius={2} paddingAngle={2} isAnimationActive={false} stroke="none">
-                    {categories.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLOR_LIST[index % CHART_COLOR_LIST.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
-                  <Legend content={<CustomLegend />} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="px-4 pt-4 pb-2">
-          <CardTitle className="text-base">Top Risk Hotspots</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : hotspots.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="pb-2 font-medium text-muted-foreground">Wilaya</th>
-                    <th className="pb-2 font-medium text-muted-foreground">Seismic Zone</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Exposure</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Risk Score</th>
-                    <th className="pb-2 font-medium text-muted-foreground">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hotspots.map((spot, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                      <td className="py-3 font-medium">{spot.wilayaName}</td>
-                      <td className="py-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-500/20 text-red-600 dark:text-red-400">
-                          {spot.seismicZone}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right font-mono">{formatCapital(spot.capitalAssure)}</td>
-                      <td className="py-3 text-right">
-                        <span className="font-bold text-red-600 dark:text-red-400">{spot.riskScore.toFixed(1)}</span>
-                      </td>
-                      <td className="py-3 text-muted-foreground text-xs">{spot.reason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="py-8 text-center text-muted-foreground">No hotspots found</div>
-          )}
-        </CardContent>
-      </Card>
+            <Card>
+              <CardHeader className="px-4 pt-4 pb-2">
+                <CardTitle className="text-base">Top Risk Hotspots</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-2 mt-4">
+                    <Skeleton className="h-10 w-full" />
+                    {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                  </div>
+                ) : hotspots.length > 0 ? (
+                  <div className="overflow-x-auto mt-2">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left">
+                          <th className="pb-2 font-medium text-muted-foreground">Wilaya</th>
+                          <th className="pb-2 font-medium text-muted-foreground text-right">Exposure</th>
+                          <th className="pb-2 font-medium text-muted-foreground text-right">Risk Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hotspots.map((spot, i) => (
+                          <tr key={i} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                            <td className="py-3 font-medium">{spot.wilayaName}</td>
+                            <td className="py-3 text-right font-mono text-xs">{formatCapital(spot.capitalAssure)}</td>
+                            <td className="py-3 text-right">
+                              <span className="font-bold text-red-500">{spot.riskScore.toFixed(1)}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">Analysis pending...</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </Layout>
   );
 }
