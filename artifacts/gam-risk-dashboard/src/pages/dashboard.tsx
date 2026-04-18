@@ -73,8 +73,8 @@ export default function Dashboard() {
                   hotspotsQuery.isLoading || hotspotsQuery.isFetching;
 
   const summary = summaryQuery.data;
-  const categories = categoryQuery.data || [];
-  const hotspots = hotspotsQuery.data || [];
+  const categories = Array.isArray(categoryQuery.data) ? categoryQuery.data : [];
+  const hotspots = Array.isArray(hotspotsQuery.data) ? hotspotsQuery.data : [];
 
   const handleRefresh = () => {
     queryClient.invalidateQueries();
