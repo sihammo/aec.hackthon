@@ -16,6 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { formatCapital } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 const API = "/api/";
 
@@ -73,39 +74,74 @@ export default function ImportData() {
     setParseErrors([]);
     setImportResult(null);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const errors: string[] = [];
-        const rows: ParsedRow[] = [];
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
 
-        (results.data as Record<string, string>[]).forEach((row, i) => {
-          const wilaya = (row.wilaya ?? row.Wilaya ?? "").trim();
-          if (!wilaya) { errors.push(`Ligne ${i + 2}: colonne "wilaya" manquante`); return; }
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
+          
+          processData(jsonData);
+        } catch (err: any) {
+          setParseErrors([`Erreur Excel: ${err.message}`]);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          processData(results.data as Record<string, any>[]);
+        },
+        error: (err) => {
+          setParseErrors([`Erreur CSV: ${err.message}`]);
+        },
+      });
+    }
+  };
 
-          const contracts = parseFloat(row.contracts ?? row.Contracts ?? "0");
-          const capitalAssure = parseFloat((row.capitalAssure ?? row.CapitalAssure ?? row.capital_assure ?? "0").replace(/\s/g, ""));
-          const primesCollectees = parseFloat((row.primesCollectees ?? row.PrimesCollectees ?? row.primes ?? "0").replace(/\s/g, ""));
+  const processData = (data: Record<string, any>[]) => {
+    const errors: string[] = [];
+    const rows: ParsedRow[] = [];
 
-          if (isNaN(contracts) || contracts < 0) { errors.push(`${wilaya}: "contracts" invalide`); return; }
-          if (isNaN(capitalAssure) || capitalAssure < 0) { errors.push(`${wilaya}: "capitalAssure" invalide`); return; }
+    data.forEach((row, i) => {
+      const wilaya = (row.wilaya ?? row.Wilaya ?? "").toString().trim();
+      if (!wilaya) { 
+        // Skip rows that are completely empty or lacking wilaya name
+        return; 
+      }
 
-          rows.push({ wilaya, contracts, capitalAssure, primesCollectees: isNaN(primesCollectees) ? 0 : primesCollectees });
-        });
+      const contracts = parseFloat((row.contracts ?? row.Contracts ?? "0").toString());
+      const capitalRaw = (row.capitalAssure ?? row.CapitalAssure ?? row.capital_assure ?? "0").toString();
+      const capitalAssure = parseFloat(capitalRaw.replace(/\s/g, ""));
+      const primesRaw = (row.primesCollectees ?? row.PrimesCollectees ?? row.primes ?? "0").toString();
+      const primesCollectees = parseFloat(primesRaw.replace(/\s/g, ""));
 
-        setParseErrors(errors);
-        setParsedRows(rows.length > 0 ? rows : null);
-      },
-      error: (err) => {
-        setParseErrors([`Erreur de lecture: ${err.message}`]);
-      },
+      if (isNaN(contracts) || contracts < 0) { errors.push(`${wilaya}: "contracts" invalide`); return; }
+      if (isNaN(capitalAssure) || capitalAssure < 0) { errors.push(`${wilaya}: "capitalAssure" invalide`); return; }
+
+      rows.push({ 
+        wilaya, 
+        contracts, 
+        capitalAssure, 
+        primesCollectees: isNaN(primesCollectees) ? 0 : primesCollectees 
+      });
     });
+
+    setParseErrors(errors);
+    setParsedRows(rows.length > 0 ? rows : null);
   };
 
   const handleFile = (file: File) => {
-    if (!file.name.endsWith(".csv") && !file.name.endsWith(".txt")) {
-      setParseErrors(["Seuls les fichiers .csv sont supportés. Exportez votre Excel en CSV d'abord."]);
+    const validTypes = [".csv", ".txt", ".xlsx", ".xls"];
+    if (!validTypes.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      setParseErrors(["Seuls les fichiers .csv, .xlsx et .xls sont supportés."]);
       return;
     }
     parseFile(file);
@@ -188,7 +224,7 @@ export default function ImportData() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".csv,.txt"
+                  accept=".csv,.txt,.xlsx,.xls"
                   className="hidden"
                   onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
                 />
@@ -197,11 +233,11 @@ export default function ImportData() {
                   <p className="font-medium text-foreground">{fileName}</p>
                 ) : (
                   <>
-                    <p className="font-medium text-foreground">Drag & drop your CSV file here</p>
+                    <p className="font-medium text-foreground">Drag & drop your portfolio file here</p>
                     <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
                   </>
                 )}
-                <p className="text-xs text-muted-foreground mt-2">.csv files only — export from Excel as CSV first</p>
+                <p className="text-xs text-muted-foreground mt-2">CSV or Excel (.xlsx, .xls) files supported</p>
               </div>
 
               {parseErrors.length > 0 && (

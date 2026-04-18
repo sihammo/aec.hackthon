@@ -236,62 +236,88 @@ router.post("/simulation/run", async (req, res): Promise<void> => {
 });
 
 router.get("/recommendations", async (_req, res): Promise<void> => {
-  const recommendations = [
-    {
+  const wilayas = getData();
+  const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
+  
+  const byZone: Record<string, number> = {};
+  wilayas.forEach(w => {
+    byZone[w.seismicZone] = (byZone[w.seismicZone] || 0) + w.capitalAssure;
+  });
+
+  const zone3Pct = totalCapital > 0 ? (byZone["III"] || 0) / totalCapital : 0;
+  const highRiskWilayas = wilayas
+    .map(w => ({ name: w.name, score: computeRiskScore(w, wilayas), exposure: w.capitalAssure }))
+    .filter(w => w.score >= 60)
+    .sort((a, b) => b.exposure - a.exposure);
+
+  const safeZonePct = totalCapital > 0 ? ((byZone["0"] || 0) + (byZone["I"] || 0)) / totalCapital : 0;
+
+  const recommendations = [];
+
+  // 1. Critical: Over-concentration in Zone III
+  if (zone3Pct > 0.35) {
+    recommendations.push({
       id: 1,
       type: "reduction",
       priority: "Critical",
-      title: "Réduire l'exposition en Zone III",
-      description: "La concentration à Alger, Blida et Boumerdès représente plus de 45% du capital assuré en zones à risque maximal. Il est impératif de plafonner la souscription dans ces wilayas.",
-      impact: "Réduction potentielle de 35% de la perte maximale possible",
-      affectedWilayas: ["Alger", "Blida", "Boumerdès"],
-    },
-    {
+      title: "Réduction drastique en Zone III",
+      description: `L'exposition en Zone III représente ${(zone3Pct * 100).toFixed(1)}% du portefeuille. Cette concentration dépasse le seuil de sécurité de 35%.`,
+      impact: "Protection contre les sinistres catastrophiques majeurs.",
+      affectedWilayas: wilayas.filter(w => w.seismicZone === "III").map(w => w.name),
+    });
+  }
+
+  // 2. High: Specific Hotspot
+  if (highRiskWilayas.length > 0) {
+    const top = highRiskWilayas[0];
+    recommendations.push({
       id: 2,
-      type: "increase",
-      priority: "High",
-      title: "Développer le portefeuille dans les zones sûres",
-      description: "Les wilayas du Sud (Adrar, Tamanrasset, Béchar, Ghardaïa, Illizi) en Zone 0 sont sous-représentées. Renforcer la présence commerciale dans ces régions permettrait d'équilibrer le portefeuille.",
-      impact: "Diversification géographique et amélioration du ratio de risque",
-      affectedWilayas: ["Adrar", "Tamanrasset", "Béchar", "Ghardaïa", "Illizi", "Tindouf"],
-    },
-    {
-      id: 3,
-      type: "pricing",
-      priority: "High",
-      title: "Réévaluation de la tarification en Zone IIb et III",
-      description: "Les primes actuelles ne reflètent pas adéquatement le risque réel pour les wilayas de Zone IIb (Oran, Tizi Ouzou, Béjaïa) et Zone III. Une majoration de prime de 20-40% est recommandée.",
-      impact: "Amélioration de la rentabilité technique et couverture du risque résiduel",
-      affectedWilayas: ["Oran", "Tizi Ouzou", "Béjaïa", "Annaba", "Skikda", "Tipaza"],
-    },
-    {
-      id: 4,
       type: "reinsurance",
       priority: "High",
-      title: "Renforcer la protection par réassurance",
-      description: "Le capital exposé en Zone III dépasse largement la capacité de rétention de 30% de GAM. Un traité de réassurance catastrophe (Cat XL) est indispensable pour les zones à risque élevé.",
-      impact: "Protection du bilan GAM contre les sinistres majeurs",
-      affectedWilayas: ["Alger", "Blida", "Boumerdès"],
-    },
-    {
-      id: 5,
-      type: "monitoring",
+      title: `Protection ponctuelle: ${top.name}`,
+      description: `${top.name} présente le score de risque le plus élevé (${top.score}/100) avec une exposition de ${(top.exposure / 1e9).toFixed(1)} Mrds DZD.`,
+      impact: "Limitation de la perte maximale possible (PML).",
+      affectedWilayas: [top.name],
+    });
+  }
+
+  // 3. High: Diversification Opportunity
+  if (safeZonePct < 0.20) {
+    recommendations.push({
+      id: 3,
+      type: "increase",
+      priority: "High",
+      title: "Accélérer la croissance en Zones 0 et I",
+      description: "Moins de 20% de votre capital assuré est situé dans des zones à risque négligeable ou faible. Le portefeuille est déséquilibré vers le nord s'intéressant.",
+      impact: "Équilibrage statistique du risque global (Mutualisation).",
+      affectedWilayas: wilayas.filter(w => w.seismicZone === "0" || w.seismicZone === "I").slice(0, 6).map(w => w.name),
+    });
+  }
+
+  // 4. Medium: Pricing adjustment
+  const lowPremiumWilayas = wilayas.filter(w => w.capitalAssure > 0 && w.primesCollectees / w.capitalAssure < 0.003 && (w.seismicZone === "III" || w.seismicZone === "IIb"));
+  if (lowPremiumWilayas.length > 0) {
+    recommendations.push({
+      id: 4,
+      type: "pricing",
       priority: "Medium",
-      title: "Plafonnement des cumuls par zone RPA99",
-      description: "Mettre en place des limites automatiques de souscription par zone RPA99. Arrêter toute nouvelle souscription en Zone III au-delà du seuil de rétention actuel.",
-      impact: "Prévention de la sur-concentration future",
-      affectedWilayas: ["Toutes les wilayas Zone III et IIb"],
-    },
-    {
-      id: 6,
-      type: "prevention",
-      priority: "Medium",
-      title: "Audit de vulnérabilité des constructions",
-      description: "Conditionner la souscription en zones sismiques actives à un diagnostic technique préalable des bâtiments selon les normes RPA99. Exclure les constructions non conformes.",
-      impact: "Réduction de la vulnérabilité intrinsèque du portefeuille",
-      affectedWilayas: ["Zones IIb et III"],
-    },
-  ];
+      title: "Révision des taux techniques",
+      description: `${lowPremiumWilayas.length} wilayas en zone à risque élevé ont des ratios primes/capital inférieurs à 0.3%.`,
+      impact: "Amélioration de la rentabilité technique par rapport au coût du risque.",
+      affectedWilayas: lowPremiumWilayas.map(w => w.name).slice(0, 5),
+    });
+  }
+
+  // 5. General: Monitoring
+  recommendations.push({
+    id: 5,
+    type: "monitoring",
+    priority: "Medium",
+    title: "Audit de conformité RPA99",
+    description: "Mettre en œuvre un contrôle systématique des certificats de conformité parasismique pour tout nouveau contrat > 500M DZD.",
+    impact: "Réduction de la vulnérabilité intrinsèque du parc assuré.",
+    affectedWilayas: ["Toutes les zones IIa, IIb, III"],
+  });
 
   res.json(recommendations);
 });
