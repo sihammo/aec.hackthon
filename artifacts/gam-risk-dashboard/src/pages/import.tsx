@@ -111,25 +111,39 @@ export default function ImportData() {
     const rows: ParsedRow[] = [];
 
     data.forEach((row, i) => {
-      const wilaya = (row.wilaya ?? row.Wilaya ?? "").toString().trim();
-      if (!wilaya) { 
-        // Skip rows that are completely empty or lacking wilaya name
-        return; 
+      // Robust column finding
+      const findValue = (keys: string[]) => {
+        const foundKey = Object.keys(row).find(k => 
+          keys.some(search => k.toLowerCase().trim() === search.toLowerCase())
+        );
+        return foundKey ? row[foundKey] : null;
+      };
+
+      const wilaya = (findValue(["wilaya", "wilaya name", "nom", "nom wilaya", "designation", "ولاية", "الولاية"]) ?? "").toString().trim();
+      
+      if (!wilaya) return; 
+
+      const contractsRaw = findValue(["contracts", "contrats", "nombre", "nbr", "count", "polices", "عدد العقود", "عدد"]);
+      const contracts = parseFloat((contractsRaw ?? "0").toString().replace(/\s/g, ""));
+      
+      const capitalRaw = (findValue(["capital", "capitalassure", "capital assuré", "engagement", "montant", "sum", "المبلغ", "رأس المال"]) ?? "0").toString();
+      const capitalAssure = parseFloat(capitalRaw.replace(/\s/g, "").replace(/,/g, ""));
+      
+      const primesRaw = (findValue(["primes", "primescollectees", "primes collectées", "primes_collectees", "premium", "الاقساط"]) ?? "0").toString();
+      const primesCollectees = parseFloat(primesRaw.replace(/\s/g, "").replace(/,/g, ""));
+
+      if (isNaN(contracts) || contracts < 0) {
+        // Only error if we actually have data but it's malformed
+        if (contractsRaw !== null) errors.push(`Ligne ${i+1} (${wilaya}): "contracts" invalide`); 
       }
-
-      const contracts = parseFloat((row.contracts ?? row.Contracts ?? "0").toString());
-      const capitalRaw = (row.capitalAssure ?? row.CapitalAssure ?? row.capital_assure ?? "0").toString();
-      const capitalAssure = parseFloat(capitalRaw.replace(/\s/g, ""));
-      const primesRaw = (row.primesCollectees ?? row.PrimesCollectees ?? row.primes ?? "0").toString();
-      const primesCollectees = parseFloat(primesRaw.replace(/\s/g, ""));
-
-      if (isNaN(contracts) || contracts < 0) { errors.push(`${wilaya}: "contracts" invalide`); return; }
-      if (isNaN(capitalAssure) || capitalAssure < 0) { errors.push(`${wilaya}: "capitalAssure" invalide`); return; }
+      if (isNaN(capitalAssure) || capitalAssure < 0) {
+        if (capitalRaw !== "0") errors.push(`Ligne ${i+1} (${wilaya}): "capital" invalide`);
+      }
 
       rows.push({ 
         wilaya, 
-        contracts, 
-        capitalAssure, 
+        contracts: isNaN(contracts) ? 0 : contracts, 
+        capitalAssure: isNaN(capitalAssure) ? 0 : capitalAssure, 
         primesCollectees: isNaN(primesCollectees) ? 0 : primesCollectees 
       });
     });
