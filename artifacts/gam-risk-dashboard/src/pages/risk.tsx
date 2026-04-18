@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CSVLink } from "react-csv";
 import { Download, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { exportToExcel } from "@/lib/export";
 import {
   useReactTable,
   getCoreRowModel,
@@ -121,9 +122,13 @@ export default function RiskScores() {
               />
             </div>
             {!loading && riskScores.length > 0 && (
-              <CSVLink data={riskScores} filename="risk-scores.csv" className="print:hidden flex items-center justify-center w-[36px] h-9 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors" aria-label="Export table data as CSV">
+              <button 
+                onClick={() => exportToExcel(riskScores, "risk-scores", "Risk Scores")}
+                className="print:hidden flex items-center justify-center w-[36px] h-9 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors" 
+                aria-label="Export table data as Excel"
+              >
                 <Download className="w-4 h-4" />
-              </CSVLink>
+              </button>
             )}
           </div>
         </CardHeader>

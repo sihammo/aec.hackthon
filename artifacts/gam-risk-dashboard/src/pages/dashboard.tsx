@@ -11,6 +11,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { exportToExcel } from "@/lib/export";
 
 const DATA_SOURCES = ["GAM Core System", "RPA99 Model"];
 
@@ -210,10 +211,15 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Exposure Growth (YTD)</CardTitle>
+
             {!loading && historicExposure.length > 0 && (
-              <CSVLink data={historicExposure} filename="exposure-growth.csv" className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}>
+              <button 
+                onClick={() => exportToExcel(historicExposure, "exposure-growth", "Exposure Growth")}
+                className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" 
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}
+              >
                 <Download className="w-3.5 h-3.5" />
-              </CSVLink>
+              </button>
             )}
           </CardHeader>
           <CardContent>
@@ -241,9 +247,13 @@ export default function Dashboard() {
           <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Exposure by Category</CardTitle>
             {!loading && categories.length > 0 && (
-              <CSVLink data={categories} filename="exposure-category.csv" className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}>
+              <button 
+                onClick={() => exportToExcel(categories, "exposure-category", "Exposure by Category")}
+                className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" 
+                style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}
+              >
                 <Download className="w-3.5 h-3.5" />
-              </CSVLink>
+              </button>
             )}
           </CardHeader>
           <CardContent>
