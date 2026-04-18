@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const portfolioTable = pgTable("portfolio", {
   id: uuid("id").primaryKey().defaultRandom(),
-  wilayaCode: text("wilaya_code").notNull(),
+  wilayaCode: integer("wilaya_code").notNull(),
   wilayaName: text("wilaya_name").notNull(),
   contracts: integer("contracts").notNull().default(0),
   capitalAssure: doublePrecision("capital_assure").notNull().default(0),
@@ -16,5 +16,5 @@ export const portfolioTable = pgTable("portfolio", {
 export const insertPortfolioSchema = createInsertSchema(portfolioTable);
 export const selectPortfolioSchema = createSelectSchema(portfolioTable);
 
-export type PortfolioItem = z.infer<typeof selectPortfolioSchema>;
-export type InsertPortfolioItem = z.infer<typeof insertPortfolioSchema>;
+export type PortfolioItem = typeof portfolioTable.$inferSelect;
+export type InsertPortfolioItem = typeof portfolioTable.$inferInsert;
