@@ -123,7 +123,19 @@ export default function RiskScores() {
             </div>
             {!loading && riskScores.length > 0 && (
               <button 
-                onClick={() => exportToExcel(riskScores, "risk-scores", "Risk Scores")}
+                onClick={() => {
+                  const exportData = riskScores.map(r => ({
+                    "Code": r.wilayaCode,
+                    "Wilaya": r.wilayaName,
+                    "Zone": r.seismicZone,
+                    "Exposure (Capital)": r.capitalAssure,
+                    "Concentration /100": r.concentrationRisk,
+                    "Vulnerability /100": r.vulnerabilityIndex,
+                    "Total Risk Score": r.riskScore,
+                    "Risk Level": r.riskLevel
+                  }));
+                  exportToExcel(exportData, "risk-scores", "Risk Scores");
+                }}
                 className="print:hidden flex items-center justify-center w-[36px] h-9 rounded-md border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors" 
                 aria-label="Export table data as Excel"
               >

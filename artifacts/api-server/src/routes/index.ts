@@ -1,8 +1,8 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import healthRouter from "./health";
 import riskRouter from "./risk";
 
-const router: IRouter = Router();
+const router: Router = Router();
 
 router.use(healthRouter);
 router.use(riskRouter);

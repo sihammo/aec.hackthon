@@ -205,88 +205,59 @@ export default function Simulation() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
+                  <CardContent className="p-4 flex flex-col items-center justify-center text-center h-full">
+                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Severity</p>
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${getSeverityColor(simulationResult.severity)}`}>
+                      {simulationResult.severity}
+                    </span>
+                  </CardContent>
+                </Card>
+                <Card>
                   <CardContent className="p-4 flex flex-col justify-center h-full">
                     <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Total Est. Loss</p>
-                    <p className="text-xl font-bold text-red-500">{formatCapital((simulationResult as any).totalEstimatedLoss)}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                      Portfolio-wide impact
-                    </div>
+                    <p className="text-xl font-bold text-red-500">{formatCapital(simulationResult.estimatedLoss)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 flex flex-col justify-center h-full">
-                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Direct physical damage</p>
-                    <p className="text-xl font-bold" style={{ color: CHART_COLORS.blue }}>{formatCapital((simulationResult as any).totalDirectLoss)}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                      L = E x H x V
-                    </div>
+                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">GAM Net Loss ({formatPercent(simulationResult.gamShare)})</p>
+                    <p className="text-xl font-bold" style={{ color: CHART_COLORS.purple }}>{formatCapital(simulationResult.gamLoss)}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 flex flex-col justify-center h-full">
-                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Cascading (BI/Demand)</p>
-                    <p className="text-xl font-bold" style={{ color: CHART_COLORS.amber }}>{formatCapital((simulationResult as any).totalCascadingLoss)}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                      +25% indirect impact
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 flex flex-col justify-center h-full">
-                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">GAM Net Retention</p>
-                    <p className="text-xl font-bold" style={{ color: CHART_COLORS.purple }}>{formatCapital((simulationResult as any).gamShare)}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                      30% of total risk
-                    </div>
+                    <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Loss Ratio</p>
+                    <p className="text-xl font-bold">{formatPercent(simulationResult.lossRatio)}</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="flex-1">
-                  <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0 border-b">
-                    <div>
-                      <CardTitle className="text-base">Loss by Asset Category</CardTitle>
-                      <CardDescription className="mt-1 text-xs">
-                        Impact distributed by portfolio structure
-                      </CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <ResponsiveContainer width="100%" height={260} debounce={0}>
-                      <BarChart data={simulationResult.breakdown} layout="vertical" margin={{ left: 10, right: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={true} vertical={false} />
-                        <XAxis type="number" tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`} tick={{ fontSize: 12, fill: tickColor }} stroke={tickColor} />
-                        <YAxis dataKey="category" type="category" tick={{ fontSize: 10, fill: tickColor }} stroke={tickColor} width={120} />
-                        <Tooltip content={<CustomTooltip />} isAnimationActive={false} cursor={{ fill: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }} />
-                        <Bar dataKey="loss" name="Estimated Loss" fill={CHART_COLORS.red} fillOpacity={0.8} activeBar={{ fillOpacity: 1 }} radius={[0, 2, 2, 0]} isAnimationActive={false} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="px-4 pt-4 pb-2">
-                    <CardTitle className="text-base">Most Impacted Provinces</CardTitle>
-                    <CardDescription className="text-xs">{(simulationResult as any).affectedWilayas} wilayas significantly affected</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 mt-2">
-                      {(simulationResult as any).results?.slice(0, 5).map((r: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                          <div>
-                            <p className="font-bold text-sm">{r.wilayaName}</p>
-                            <p className="text-[10px] text-muted-foreground">{r.distance} KM from epicenter • Intensity: {r.hazardIntensity}%</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-mono text-sm font-bold text-red-500">{formatCapital(r.totalLoss)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <Card className="flex-1">
+                <CardHeader className="px-4 pt-4 pb-2 flex-row items-center justify-between space-y-0 border-b">
+                  <div>
+                    <CardTitle className="text-base">Loss Breakdown by Category</CardTitle>
+                    <CardDescription className="mt-1 text-xs">
+                      {simulationResult.wilayaName} • Mw {simulationResult.magnitude} • {simulationResult.scenario} scenario
+                    </CardDescription>
+                  </div>
+                  {simulationResult.breakdown && (
+                    <CSVLink data={simulationResult.breakdown} filename="simulation-breakdown.csv" className="print:hidden flex items-center justify-center w-[26px] h-[26px] rounded-[6px] transition-colors hover:opacity-80" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "#F0F1F2", color: isDark ? "#c8c9cc" : "#4b5563" }}>
+                      <Download className="w-3.5 h-3.5" />
+                    </CSVLink>
+                  )}
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <ResponsiveContainer width="100%" height={300} debounce={0}>
+                    <BarChart data={simulationResult.breakdown} layout="vertical" margin={{ left: 10, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={true} vertical={false} />
+                      <XAxis type="number" tickFormatter={(val) => `${(val / 1000000000).toFixed(0)}`} tick={{ fontSize: 12, fill: tickColor }} stroke={tickColor} />
+                      <YAxis dataKey="category" type="category" tick={{ fontSize: 12, fill: tickColor }} stroke={tickColor} width={120} />
+                      <Tooltip content={<CustomTooltip />} isAnimationActive={false} cursor={{ fill: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }} />
+                      <Bar dataKey="loss" name="Estimated Loss" fill={CHART_COLORS.red} fillOpacity={0.8} activeBar={{ fillOpacity: 1 }} radius={[0, 2, 2, 0]} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>

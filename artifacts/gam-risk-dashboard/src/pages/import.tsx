@@ -111,21 +111,20 @@ export default function ImportData() {
     const rows: ParsedRow[] = [];
 
     data.forEach((row, i) => {
-      // Standardize field names (case insensitive and common variations)
-      const wilaya = (row.wilaya ?? row.Wilaya ?? row.WILAYA ?? "").toString().trim();
-      if (!wilaya) return;
+      const wilaya = (row.wilaya ?? row.Wilaya ?? "").toString().trim();
+      if (!wilaya) { 
+        // Skip rows that are completely empty or lacking wilaya name
+        return; 
+      }
 
-      const cleanStringNum = (val: any) => {
-        if (!val) return "0";
-        return val.toString().replace(/\s/g, "").replace(/,/g, ".");
-      };
+      const contracts = parseFloat((row.contracts ?? row.Contracts ?? "0").toString());
+      const capitalRaw = (row.capitalAssure ?? row.CapitalAssure ?? row.capital_assure ?? "0").toString();
+      const capitalAssure = parseFloat(capitalRaw.replace(/\s/g, ""));
+      const primesRaw = (row.primesCollectees ?? row.PrimesCollectees ?? row.primes ?? "0").toString();
+      const primesCollectees = parseFloat(primesRaw.replace(/\s/g, ""));
 
-      const contracts = parseFloat(cleanStringNum(row.contracts ?? row.Contracts ?? "0"));
-      const capitalAssure = parseFloat(cleanStringNum(row.capitalAssure ?? row.CapitalAssure ?? row.CAPITAL_ASSURE ?? "0"));
-      const primesCollectees = parseFloat(cleanStringNum(row.primesCollectees ?? row.PrimesCollectees ?? row.PRIME_NETTE ?? row.primes ?? "0"));
-
-      if (isNaN(contracts)) { errors.push(`${wilaya}: "contracts" invalide`); return; }
-      if (isNaN(capitalAssure)) { errors.push(`${wilaya}: "capitalAssure" invalide`); return; }
+      if (isNaN(contracts) || contracts < 0) { errors.push(`${wilaya}: "contracts" invalide`); return; }
+      if (isNaN(capitalAssure) || capitalAssure < 0) { errors.push(`${wilaya}: "capitalAssure" invalide`); return; }
 
       rows.push({ 
         wilaya, 
