@@ -306,22 +306,63 @@ export default function ImportData() {
               )}
 
               {importResult && (
-                <div className={`rounded-lg p-4 border ${importResult.success ? "bg-green-500/10 border-green-500/30" : "bg-destructive/10 border-destructive/30"}`}>
-                  <p className={`text-sm font-medium flex items-center gap-2 ${importResult.success ? "text-green-500" : "text-destructive"}`}>
-                    {importResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                    {importResult.message}
-                  </p>
-                  {importResult.warnings && importResult.warnings.length > 0 && (
-                    <div className="mt-2 space-y-0.5">
-                      {importResult.warnings.map((w, i) => (
-                        <p key={i} className="text-xs text-muted-foreground ml-6">{w}</p>
-                      ))}
-                    </div>
-                  )}
-                  {importResult.success && (
-                    <p className="text-xs text-muted-foreground mt-1 ml-6">
-                      Navigate to Dashboard, Risk Scores, or Simulation to see your updated analysis.
+                <div className="space-y-4">
+                  <div className={`rounded-lg p-4 border ${importResult.success ? "bg-green-500/10 border-green-500/30" : "bg-destructive/10 border-destructive/30"}`}>
+                    <p className={`text-sm font-medium flex items-center gap-2 ${importResult.success ? "text-green-500" : "text-destructive"}`}>
+                      {importResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      {importResult.message}
                     </p>
+                    {importResult.warnings && importResult.warnings.length > 0 && (
+                      <div className="mt-2 space-y-0.5">
+                        {importResult.warnings.map((w, i) => (
+                          <p key={i} className="text-xs text-muted-foreground ml-6">{w}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {importResult.success && (importResult as any).analysis && (
+                    <Card className="border-primary/30 bg-primary/5 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                      <div className="bg-primary/20 px-4 py-2 border-b border-primary/20 flex justify-between items-center">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Rapport d'Étude Automatique</span>
+                        <span className="text-[10px] text-primary/70">Généré le {new Date().toLocaleDateString("fr-DZ")}</span>
+                      </div>
+                      <CardContent className="p-4 space-y-4">
+                        <h3 className="font-bold text-lg text-primary">Étude Stratégique du Portefeuille (2023-2025)</h3>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="bg-background/80 p-3 rounded-xl border border-border/50">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Total Capital</p>
+                             <p className="text-sm font-black text-foreground">{formatCapital((importResult as any).analysis.totalCapital)}</p>
+                          </div>
+                          <div className="bg-background/80 p-3 rounded-xl border border-border/50">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Contrats</p>
+                             <p className="text-sm font-black text-foreground">{(importResult as any).analysis.totalContracts.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-background/80 p-3 rounded-xl border border-border/50">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Zones de Danger</p>
+                             <p className="text-sm font-black text-red-500">{(importResult as any).analysis.highRiskCount} Wilayas</p>
+                          </div>
+                          <div className="bg-background/80 p-3 rounded-xl border border-border/50">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Point Critique</p>
+                             <p className="text-sm font-black text-foreground">{(importResult as any).analysis.topRiskWilaya}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-primary/10 p-4 rounded-xl border border-primary/10 border-l-4 border-l-primary">
+                          <p className="text-xs leading-relaxed text-foreground/80 italic">
+                            "L'analyse automatique indique une concentration de risques significative. Nous vous recommandons de consulter le Dashboard détaillé pour voir la répartition par zone sismique et les recommandations de souscription."
+                          </p>
+                        </div>
+
+                        <Button 
+                          className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
+                          onClick={() => window.location.href = "/"}
+                        >
+                          Accéder au Dashboard Complet
+                        </Button>
+                      </CardContent>
+                    </Card>
                   )}
                 </div>
               )}

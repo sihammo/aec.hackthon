@@ -7,7 +7,7 @@ const router: Router = Router();
 const GAM_RETENTION = 0.30;
 
 router.get("/portfolio/summary", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const totalContracts = wilayas.reduce((s, w) => s + w.contracts, 0);
   const totalCapitalAssure = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
   const totalPrimesCollectees = wilayas.reduce((s, w) => s + w.primesCollectees, 0);
@@ -43,7 +43,7 @@ router.get("/portfolio/summary", async (_req, res): Promise<void> => {
 });
 
 router.get("/portfolio/by-wilaya", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const result = wilayas.map(w => {
     const score = computeRiskScore(w, wilayas);
     return {
@@ -70,7 +70,7 @@ router.get("/portfolio/by-category", async (_req, res): Promise<void> => {
     { category: "Installation Industrielle", pct: 0.17 },
   ];
 
-  const wilayas = getData();
+  const wilayas = await getData();
   const totalContracts = wilayas.reduce((s, w) => s + w.contracts, 0);
   const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
 
@@ -83,7 +83,7 @@ router.get("/portfolio/by-category", async (_req, res): Promise<void> => {
 });
 
 router.get("/portfolio/by-zone", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const zoneMap: Record<string, { contracts: number; capital: number }> = {};
   wilayas.forEach(w => {
     if (!zoneMap[w.seismicZone]) zoneMap[w.seismicZone] = { contracts: 0, capital: 0 };
@@ -106,7 +106,7 @@ router.get("/portfolio/by-zone", async (_req, res): Promise<void> => {
 });
 
 router.get("/risk/scores", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const totalCapital = wilayas.reduce((s, x) => s + x.capitalAssure, 0);
   const result = wilayas.map(w => {
     const score = computeRiskScore(w, wilayas);
@@ -126,7 +126,7 @@ router.get("/risk/scores", async (_req, res): Promise<void> => {
 });
 
 router.get("/risk/hotspots", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const withScores = wilayas.map(w => ({
     ...w,
     score: computeRiskScore(w, wilayas),
@@ -163,7 +163,7 @@ function generateHotspotReason(name: string, zone: string, capital: number): str
 }
 
 router.get("/risk/map-data", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const result = wilayas.map(w => {
     const score = computeRiskScore(w, wilayas);
     return {
@@ -184,7 +184,7 @@ router.get("/risk/map-data", async (_req, res): Promise<void> => {
 router.post("/simulation/run", async (req, res): Promise<void> => {
   const { wilayaCode, magnitude, scenario } = req.body;
 
-  const wilaya = getData().find(w => w.code === wilayaCode);
+  const wilaya = (await getData()).find(w => w.code === wilayaCode);
   if (!wilaya) {
     res.status(404).json({ error: "Wilaya not found" });
     return;
@@ -236,7 +236,7 @@ router.post("/simulation/run", async (req, res): Promise<void> => {
 });
 
 router.get("/recommendations", async (_req, res): Promise<void> => {
-  const wilayas = getData();
+  const wilayas = await getData();
   const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
   
   const byZone: Record<string, number> = {};
@@ -323,7 +323,7 @@ router.get("/recommendations", async (_req, res): Promise<void> => {
 });
 
 router.get("/portfolio/import-status", async (_req, res): Promise<void> => {
-  res.json(getDataStatus());
+  res.json(await getDataStatus());
 });
 
 router.get("/portfolio/template", async (_req, res): Promise<void> => {
@@ -372,13 +372,31 @@ router.post("/portfolio/import", async (req, res): Promise<void> => {
     return;
   }
 
-  setData(merged);
-  const status = getDataStatus();
-  res.json({ success: true, wilayas: status.wilayas, importedAt: status.importedAt, warnings: errors });
+  await setData(merged);
+  const status = await getDataStatus();
+  const wilayas = await getData();
+  
+  // Basic analysis for the report
+  const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
+  const totalContracts = wilayas.reduce((s, w) => s + w.contracts, 0);
+  const highRiskAreas = wilayas.filter(w => computeRiskScore(w, wilayas) >= 60);
+  
+  res.json({ 
+    success: true, 
+    wilayas: status.wilayas, 
+    importedAt: new Date().toISOString(), 
+    analysis: {
+      totalCapital,
+      totalContracts,
+      highRiskCount: highRiskAreas.length,
+      topRiskWilaya: highRiskAreas.sort((a, b) => b.capitalAssure - a.capitalAssure)[0]?.name || "N/A"
+    },
+    warnings: errors 
+  });
 });
 
 router.post("/portfolio/reset", async (_req, res): Promise<void> => {
-  resetData();
+  await resetData();
   res.json({ success: true, message: "Données réinitialisées aux valeurs par défaut" });
 });
 
