@@ -7,7 +7,8 @@ import {
   ShieldAlert, 
   Zap, 
   Lightbulb,
-  Activity
+  Activity,
+  Upload,
 } from "lucide-react";
 import { formatCapital } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +24,7 @@ export function AppSidebar() {
     { href: "/risk", label: "Risk Scores", icon: ShieldAlert },
     { href: "/simulation", label: "Simulation", icon: Zap },
     { href: "/recommendations", label: "Recommendations", icon: Lightbulb },
+    { href: "/import", label: "Import Data", icon: Upload },
   ];
 
   return (

@@ -10,6 +10,7 @@ import Portfolio from "@/pages/portfolio";
 import RiskScores from "@/pages/risk";
 import Simulation from "@/pages/simulation";
 import Recommendations from "@/pages/recommendations";
+import ImportData from "@/pages/import";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/risk" component={RiskScores} />
       <Route path="/simulation" component={Simulation} />
       <Route path="/recommendations" component={Recommendations} />
+      <Route path="/import" component={ImportData} />
       <Route component={NotFound} />
     </Switch>
   );

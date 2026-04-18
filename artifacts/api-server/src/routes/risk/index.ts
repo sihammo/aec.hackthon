@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
-import { WILAYA_DATA, SEISMIC_ZONES, computeRiskScore, getRiskLevel } from "../../lib/gamData";
+import { SEISMIC_ZONES, computeRiskScore, getRiskLevel, WILAYA_DATA } from "../../lib/gamData";
+import { getData, setData, resetData, getDataStatus } from "../../lib/dataStore";
 
 const router: IRouter = Router();
 
 const GAM_RETENTION = 0.30;
 
 router.get("/portfolio/summary", async (_req, res): Promise<void> => {
-  const wilayas = WILAYA_DATA;
+  const wilayas = getData();
   const totalContracts = wilayas.reduce((s, w) => s + w.contracts, 0);
   const totalCapitalAssure = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
   const totalPrimesCollectees = wilayas.reduce((s, w) => s + w.primesCollectees, 0);
@@ -15,7 +16,7 @@ router.get("/portfolio/summary", async (_req, res): Promise<void> => {
   let exposureHighRisk = 0;
 
   wilayas.forEach(w => {
-    const score = computeRiskScore(w);
+    const score = computeRiskScore(w, wilayas);
     const level = getRiskLevel(score);
     if (level === "High") {
       contractsHighRisk += w.contracts;
@@ -31,19 +32,20 @@ router.get("/portfolio/summary", async (_req, res): Promise<void> => {
     totalContracts,
     totalCapitalAssure,
     totalPrimesCollectees,
-    avgCapitalPerContract: Math.round(totalCapitalAssure / totalContracts),
+    avgCapitalPerContract: totalContracts > 0 ? Math.round(totalCapitalAssure / totalContracts) : 0,
     contractsHighRisk,
     contractsMediumRisk,
     contractsLowRisk,
     exposureHighRisk,
-    pctHighRisk: Math.round((exposureHighRisk / totalCapitalAssure) * 100),
+    pctHighRisk: totalCapitalAssure > 0 ? Math.round((exposureHighRisk / totalCapitalAssure) * 100) : 0,
     gamRetentionShare: totalCapitalAssure * GAM_RETENTION,
   });
 });
 
 router.get("/portfolio/by-wilaya", async (_req, res): Promise<void> => {
-  const result = WILAYA_DATA.map(w => {
-    const score = computeRiskScore(w);
+  const wilayas = getData();
+  const result = wilayas.map(w => {
+    const score = computeRiskScore(w, wilayas);
     return {
       wilayaCode: w.code,
       wilayaName: w.name,
@@ -68,8 +70,9 @@ router.get("/portfolio/by-category", async (_req, res): Promise<void> => {
     { category: "Installation Industrielle", pct: 0.17 },
   ];
 
-  const totalContracts = WILAYA_DATA.reduce((s, w) => s + w.contracts, 0);
-  const totalCapital = WILAYA_DATA.reduce((s, w) => s + w.capitalAssure, 0);
+  const wilayas = getData();
+  const totalContracts = wilayas.reduce((s, w) => s + w.contracts, 0);
+  const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
 
   res.json(categories.map(c => ({
     category: c.category,
@@ -80,21 +83,22 @@ router.get("/portfolio/by-category", async (_req, res): Promise<void> => {
 });
 
 router.get("/portfolio/by-zone", async (_req, res): Promise<void> => {
+  const wilayas = getData();
   const zoneMap: Record<string, { contracts: number; capital: number }> = {};
-  WILAYA_DATA.forEach(w => {
+  wilayas.forEach(w => {
     if (!zoneMap[w.seismicZone]) zoneMap[w.seismicZone] = { contracts: 0, capital: 0 };
     zoneMap[w.seismicZone].contracts += w.contracts;
     zoneMap[w.seismicZone].capital += w.capitalAssure;
   });
 
-  const totalCapital = WILAYA_DATA.reduce((s, w) => s + w.capitalAssure, 0);
+  const totalCapital = wilayas.reduce((s, w) => s + w.capitalAssure, 0);
 
   const result = Object.entries(zoneMap).map(([zone, data]) => ({
     zone,
     zoneName: SEISMIC_ZONES[zone]?.name ?? `Zone ${zone}`,
     totalContracts: data.contracts,
     capitalAssure: data.capital,
-    pct: Math.round((data.capital / totalCapital) * 100),
+    pct: totalCapital > 0 ? Math.round((data.capital / totalCapital) * 100) : 0,
     riskMultiplier: SEISMIC_ZONES[zone]?.multiplier ?? 0,
   })).sort((a, b) => b.riskMultiplier - a.riskMultiplier);
 
@@ -102,9 +106,10 @@ router.get("/portfolio/by-zone", async (_req, res): Promise<void> => {
 });
 
 router.get("/risk/scores", async (_req, res): Promise<void> => {
-  const result = WILAYA_DATA.map(w => {
-    const score = computeRiskScore(w);
-    const totalCapital = WILAYA_DATA.reduce((s, x) => s + x.capitalAssure, 0);
+  const wilayas = getData();
+  const totalCapital = wilayas.reduce((s, x) => s + x.capitalAssure, 0);
+  const result = wilayas.map(w => {
+    const score = computeRiskScore(w, wilayas);
     return {
       wilayaCode: w.code,
       wilayaName: w.name,
@@ -112,8 +117,8 @@ router.get("/risk/scores", async (_req, res): Promise<void> => {
       riskScore: score,
       riskLevel: getRiskLevel(score),
       capitalAssure: w.capitalAssure,
-      concentrationRisk: Math.round((w.capitalAssure / totalCapital) * 100 * 10) / 10,
-      vulnerabilityIndex: Math.round(SEISMIC_ZONES[w.seismicZone]?.multiplier * 100 ?? 0),
+      concentrationRisk: totalCapital > 0 ? Math.round((w.capitalAssure / totalCapital) * 100 * 10) / 10 : 0,
+      vulnerabilityIndex: Math.round((SEISMIC_ZONES[w.seismicZone]?.multiplier ?? 0) * 100),
     };
   }).sort((a, b) => b.riskScore - a.riskScore);
 
@@ -121,10 +126,11 @@ router.get("/risk/scores", async (_req, res): Promise<void> => {
 });
 
 router.get("/risk/hotspots", async (_req, res): Promise<void> => {
-  const withScores = WILAYA_DATA.map(w => ({
+  const wilayas = getData();
+  const withScores = wilayas.map(w => ({
     ...w,
-    score: computeRiskScore(w),
-    riskLevel: getRiskLevel(computeRiskScore(w)),
+    score: computeRiskScore(w, wilayas),
+    riskLevel: getRiskLevel(computeRiskScore(w, wilayas)),
   }));
 
   const hotspots = withScores
@@ -157,8 +163,9 @@ function generateHotspotReason(name: string, zone: string, capital: number): str
 }
 
 router.get("/risk/map-data", async (_req, res): Promise<void> => {
-  const result = WILAYA_DATA.map(w => {
-    const score = computeRiskScore(w);
+  const wilayas = getData();
+  const result = wilayas.map(w => {
+    const score = computeRiskScore(w, wilayas);
     return {
       wilayaCode: w.code,
       wilayaName: w.name,
@@ -177,7 +184,7 @@ router.get("/risk/map-data", async (_req, res): Promise<void> => {
 router.post("/simulation/run", async (req, res): Promise<void> => {
   const { wilayaCode, magnitude, scenario } = req.body;
 
-  const wilaya = WILAYA_DATA.find(w => w.code === wilayaCode);
+  const wilaya = getData().find(w => w.code === wilayaCode);
   if (!wilaya) {
     res.status(404).json({ error: "Wilaya not found" });
     return;
@@ -287,6 +294,66 @@ router.get("/recommendations", async (_req, res): Promise<void> => {
   ];
 
   res.json(recommendations);
+});
+
+router.get("/portfolio/import-status", async (_req, res): Promise<void> => {
+  res.json(getDataStatus());
+});
+
+router.get("/portfolio/template", async (_req, res): Promise<void> => {
+  const headers = "wilaya,contracts,capitalAssure,primesCollectees";
+  const rows = WILAYA_DATA.map(w =>
+    `${w.name},${w.contracts},${w.capitalAssure},${w.primesCollectees}`
+  ).join("\n");
+  const csv = `${headers}\n${rows}`;
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=gam_portfolio_template.csv");
+  res.send(csv);
+});
+
+router.post("/portfolio/import", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: { wilaya: string; contracts: number; capitalAssure: number; primesCollectees: number }[] };
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required and must not be empty" });
+    return;
+  }
+
+  const errors: string[] = [];
+  const merged = WILAYA_DATA.map(w => {
+    const row = rows.find(r => r.wilaya.trim().toLowerCase() === w.name.toLowerCase());
+    if (!row) return w;
+    if (typeof row.contracts !== "number" || row.contracts < 0) {
+      errors.push(`${w.name}: contracts invalide`);
+      return w;
+    }
+    if (typeof row.capitalAssure !== "number" || row.capitalAssure < 0) {
+      errors.push(`${w.name}: capitalAssure invalide`);
+      return w;
+    }
+    return {
+      ...w,
+      contracts: Math.round(row.contracts),
+      capitalAssure: row.capitalAssure,
+      primesCollectees: typeof row.primesCollectees === "number" && row.primesCollectees >= 0
+        ? row.primesCollectees
+        : row.capitalAssure * 0.003,
+    };
+  });
+
+  if (errors.length > rows.length / 2) {
+    res.status(400).json({ error: "Trop d'erreurs dans le fichier", details: errors });
+    return;
+  }
+
+  setData(merged);
+  const status = getDataStatus();
+  res.json({ success: true, wilayas: status.wilayas, importedAt: status.importedAt, warnings: errors });
+});
+
+router.post("/portfolio/reset", async (_req, res): Promise<void> => {
+  resetData();
+  res.json({ success: true, message: "Données réinitialisées aux valeurs par défaut" });
 });
 
 export default router;

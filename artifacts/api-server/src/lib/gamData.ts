@@ -68,11 +68,12 @@ export const WILAYA_DATA: WilayaData[] = [
   { code: 48, name: "Relizane", seismicZone: "IIb", lat: 35.73, lng: 0.56, contracts: 198, capitalAssure: 10_200_000_000, primesCollectees: 30_600_000 },
 ];
 
-export function computeRiskScore(w: WilayaData): number {
+export function computeRiskScore(w: WilayaData, dataset?: WilayaData[]): number {
   const zone = SEISMIC_ZONES[w.seismicZone];
   const baseScore = zone ? zone.baseScore : 0;
-  const totalCapital = WILAYA_DATA.reduce((s, x) => s + x.capitalAssure, 0);
-  const concentrationFactor = w.capitalAssure / totalCapital;
+  const data = dataset ?? WILAYA_DATA;
+  const totalCapital = data.reduce((s, x) => s + x.capitalAssure, 0);
+  const concentrationFactor = totalCapital > 0 ? w.capitalAssure / totalCapital : 0;
   const concentrationBonus = Math.min(concentrationFactor * 300, 30);
   return Math.min(100, Math.round(baseScore + concentrationBonus));
 }
